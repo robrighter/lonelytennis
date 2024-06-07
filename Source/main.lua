@@ -9,9 +9,16 @@ local paddleX, paddleY = 10, (screenHeight - paddleHeight) / 2
 
 local ballSize = 10
 local ballX, ballY = screenWidth - 20, (screenHeight - ballSize) / 2
-local ballSpeedX, ballSpeedY = -5, 5
+local ballSpeed = 5
+local ballSpeedX, ballSpeedY = -ballSpeed, ballSpeed
 local paddleSpeed = 7
-local highScore = playdate.datastore.read("highScore") or 0
+local highScore = 0
+local gameData = playdate.datastore.read()
+if gameData then
+    highScore = gameData.highScore
+end
+
+
 local score = 0
 local gameIsOver = false
 local showTitleScreen = true
@@ -37,6 +44,26 @@ local haikus = {
 }
 local selectedHaiku = haikus[math.random(#haikus)]
 
+function saveGameData()
+    -- Save game data into a table first
+    local gameData = {
+        highScore = highScore
+    }
+    playdate.datastore.write(gameData)
+end
+
+-- Automatically save game data when the player chooses
+-- to exit the game via the System Menu or Menu button
+function playdate.gameWillTerminate()
+    saveGameData()
+end
+
+-- Automatically save game data when the device goes
+-- to low-power sleep mode because of a low battery
+function playdate.gameWillSleep()
+    saveGameData()
+end
+
 function playdate.update()
     
     if showTitleScreen then
@@ -49,11 +76,37 @@ function playdate.update()
         end
     elseif not gameIsOver then
         -- Input handling for the paddle
+        local resetBallSpeed = false
         if playdate.buttonIsPressed(playdate.kButtonUp) then
             paddleY = math.max(scoreBarHeight, paddleY - paddleSpeed)
         elseif playdate.buttonIsPressed(playdate.kButtonDown) then
             paddleY = math.min(screenHeight - paddleHeight, paddleY + paddleSpeed)
+        elseif playdate.buttonIsPressed(playdate.kButtonLeft) then
+            if ballSpeed>1 then
+                ballSpeed = ballSpeed-1
+                resetBallSpeed=true
+            end
+        elseif playdate.buttonIsPressed(playdate.kButtonRight) then
+            ballSpeed = ballSpeed+1
+            resetBallSpeed=true
         end
+        
+        if resetBallSpeed then
+            if ballSpeedY>0 then
+                ballSpeedY = ballSpeed
+            else
+                ballSpeedY = ballSpeed*(-1)
+            end
+    
+            if ballSpeedX>0 then
+                ballSpeedX = ballSpeed
+            else
+                ballSpeedX = ballSpeed*(-1)
+            end    
+        end
+        
+        
+        
 
         -- Move the ball
         ballX = ballX + ballSpeedX
@@ -81,6 +134,9 @@ function playdate.update()
             end
         end
 
+        if score > highScore then
+            highScore = score
+        end
         -- Draw everything
         playdate.graphics.clear()
         -- Draw the score bar
